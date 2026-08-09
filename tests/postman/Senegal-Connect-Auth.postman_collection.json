@@ -1,0 +1,382 @@
+{
+  "info": {
+    "name": "Sénégal Connect — Module Auth",
+    "description": "Tests du module authentification (register/login/profil) — Projet TCS L3 UAM",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": { "type": "text/javascript", "exec": [""] }
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3000" },
+    { "key": "token", "value": "" },
+    { "key": "email_test", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "0. Health check",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/health"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+              "pm.test('Corps contient statut ok', () => {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.statut).to.eql('ok');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Register — succès (201)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nom\": \"Diallo\",\n  \"prenom\": \"Mariama\",\n  \"email\": \"mariama.{{$timestamp}}@example.sn\",\n  \"mot_de_passe\": \"MotDePasse123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut 201 Created', () => pm.response.to.have.status(201));",
+              "const body = pm.response.json();",
+              "pm.test('Réponse contient utilisateur + token', () => {",
+              "    pm.expect(body).to.have.property('utilisateur');",
+              "    pm.expect(body).to.have.property('token');",
+              "});",
+              "pm.test('Le hash du mot de passe n\\'est jamais renvoyé', () => {",
+              "    pm.expect(body.utilisateur).to.not.have.property('mot_de_passe');",
+              "});",
+              "pm.test('Rôle par défaut = client', () => {",
+              "    pm.expect(body.utilisateur.role).to.eql('client');",
+              "});",
+              "",
+              "// On sauvegarde l'email et le token générés pour les requêtes suivantes",
+              "pm.collectionVariables.set('email_test', pm.request.body.raw ? JSON.parse(pm.request.body.raw).email : '');",
+              "pm.collectionVariables.set('token', body.token);"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Register — email dupliqué (409)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nom\": \"Diallo\",\n  \"prenom\": \"Mariama\",\n  \"email\": \"{{email_test}}\",\n  \"mot_de_passe\": \"AutreMotDePasse123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut 409 Conflict', () => pm.response.to.have.status(409));",
+              "pm.test('Message d\\'erreur explicite', () => {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.erreur.toLowerCase()).to.include('existe déjà'.toLowerCase().split(' ')[0]);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "description": "Nécessite d'avoir exécuté la requête 1 juste avant, pour que {{email_test}} soit déjà en base."
+    },
+    {
+      "name": "3. Register — email invalide (422)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nom\": \"Test\",\n  \"prenom\": \"User\",\n  \"email\": \"pas-un-email\",\n  \"mot_de_passe\": \"MotDePasse123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut 422 Unprocessable Entity', () => pm.response.to.have.status(422));",
+              "const body = pm.response.json();",
+              "pm.test('Détail des erreurs par champ présent', () => {",
+              "    pm.expect(body.details.champs).to.be.an('array').that.is.not.empty;",
+              "});",
+              "pm.test('Le champ fautif est bien \"email\"', () => {",
+              "    const champs = body.details.champs.map(c => c.champ);",
+              "    pm.expect(champs).to.include('email');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "4. Register — mot de passe trop court (422)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"nom\": \"Test\",\n  \"prenom\": \"User\",\n  \"email\": \"court.{{$timestamp}}@example.sn\",\n  \"mot_de_passe\": \"123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut 422', () => pm.response.to.have.status(422));",
+              "const body = pm.response.json();",
+              "pm.test('Champ fautif = mot_de_passe', () => {",
+              "    const champs = body.details.champs.map(c => c.champ);",
+              "    pm.expect(champs).to.include('mot_de_passe');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "5. Register — champ nom manquant (422)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/api/auth/register",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"prenom\": \"User\",\n  \"email\": \"sansnom.{{$timestamp}}@example.sn\",\n  \"mot_de_passe\": \"MotDePasse123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut 422', () => pm.response.to.have.status(422));",
+              "const body = pm.response.json();",
+              "pm.test('Champ fautif = nom', () => {",
+              "    const champs = body.details.champs.map(c => c.champ);",
+              "    pm.expect(champs).to.include('nom');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "6. Login — succès (200)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/api/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email_test}}\",\n  \"mot_de_passe\": \"MotDePasse123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Token JWT présent et bien formé (3 parties)', () => {",
+              "    pm.expect(body.token.split('.')).to.have.lengthOf(3);",
+              "});",
+              "pm.test('Mot de passe absent de la réponse', () => {",
+              "    pm.expect(body.utilisateur).to.not.have.property('mot_de_passe');",
+              "});",
+              "",
+              "// On rafraîchit le token collection pour les requêtes suivantes (profil)",
+              "pm.collectionVariables.set('token', body.token);"
+            ]
+          }
+        }
+      ],
+      "description": "Nécessite d'avoir exécuté la requête 1 (register) juste avant, pour que {{email_test}} et le mot de passe correspondent."
+    },
+    {
+      "name": "7. Login — mauvais mot de passe (401)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/api/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"{{email_test}}\",\n  \"mot_de_passe\": \"MauvaisMotDePasse\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut 401', () => pm.response.to.have.status(401));",
+              "pm.test('Message générique (anti-énumération)', () => {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.erreur).to.eql('Email ou mot de passe incorrect.');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "8. Login — email inconnu (401, MÊME message que le 7)",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "url": "{{base_url}}/api/auth/login",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"inconnu.{{$timestamp}}@example.sn\",\n  \"mot_de_passe\": \"NimporteQuoi123\"\n}"
+        }
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut 401', () => pm.response.to.have.status(401));",
+              "pm.test('Message IDENTIQUE au cas \"mauvais mot de passe\" (anti-énumération de comptes)', () => {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.erreur).to.eql('Email ou mot de passe incorrect.');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "description": "Point de contrôle important : compare ce test avec le n°7. Si les messages diffèrent, c'est une faille d'énumération de comptes à corriger."
+    },
+    {
+      "name": "9. Profil — avec token valide (200)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": "{{base_url}}/api/auth/profil"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+              "const body = pm.response.json();",
+              "pm.test('Email du profil correspond au compte connecté', () => {",
+              "    pm.expect(body.utilisateur.email).to.eql(pm.collectionVariables.get('email_test'));",
+              "});"
+            ]
+          }
+        }
+      ],
+      "description": "Nécessite d'avoir exécuté la requête 6 (login) juste avant."
+    },
+    {
+      "name": "10. Profil — sans token (401, message 'manquant')",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/auth/profil"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut 401', () => pm.response.to.have.status(401));",
+              "pm.test('Message = \"Token manquant\"', () => {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.erreur).to.include('manquant');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "11. Profil — token structurellement invalide (401, message 'invalide')",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer ceci.nest.pasunjwt" }],
+        "url": "{{base_url}}/api/auth/profil"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut 401', () => pm.response.to.have.status(401));",
+              "pm.test('Message = \"Token invalide\"', () => {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.erreur).to.include('invalide');",
+              "});"
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "12. Profil — token expiré (401, message 'expiré')",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJ0ZXN0QGV4YW1wbGUuc24iLCJyb2xlIjoiY2xpZW50IiwiaWF0IjoxNzg2MjMxMDg1LCJleHAiOjE3ODYyMzI4ODUsImlzcyI6InNlbmVnYWwtY29ubmVjdCJ9.PtusIIekAdCQXOEXSYZpNfbZckRnnicZDQ5BWnxFiFE"
+          }
+        ],
+        "url": "{{base_url}}/api/auth/profil"
+      },
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Statut 401', () => pm.response.to.have.status(401));",
+              "pm.test('Message = \"Token expiré\"', () => {",
+              "    const body = pm.response.json();",
+              "    pm.expect(body.erreur).to.include('expiré');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "description": "Le token utilisé ici est un JWT expiré (payload : {\"id\":1,\"email\":\"test@example.sn\",\"role\":\"client\",\"iat\":1786231085,\"exp\":1786232885,\"iss\":\"senegal-connect\"})"
+    }
+  ]
+}
