@@ -1,0 +1,971 @@
+{
+  "info": {
+    "name": "Sénégal Connect — Module CRUD (Clients/Forfaits/Factures)",
+    "description": "Tests du module M1 : pagination, filtres, codes HTTP, contrôle de rôles — Projet TCS L3 UAM. Le middleware JWT (token manquant/invalide/expiré) est déjà testé exhaustivement dans la collection Auth : ici on vérifie seulement qu'il est bien branché sur ces routes. Note sur les violations de clé étrangère (voir 2.4 et 3.6) : PostgreSQL distingue deux SQLSTATE normalisés dans la classe 23 — 23001 (restrict_violation, suppression bloquée par ON DELETE RESTRICT) -> 409, et 23503 (foreign_key_violation, référence vers une clé inexistante à la création/modification) -> 422. erreurs.js s'appuie directement sur ces codes plutôt que sur le texte du message (qui varie selon la version de PostgreSQL).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "token_admin",
+      "value": ""
+    },
+    {
+      "key": "token_agent",
+      "value": ""
+    },
+    {
+      "key": "token_client",
+      "value": ""
+    },
+    {
+      "key": "client_id",
+      "value": ""
+    },
+    {
+      "key": "msisdn_test",
+      "value": ""
+    },
+    {
+      "key": "msisdn_genere",
+      "value": ""
+    },
+    {
+      "key": "forfait_id_supprimable",
+      "value": ""
+    },
+    {
+      "key": "facture_id",
+      "value": ""
+    },
+    {
+      "key": "admin_password",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Setup — Comptes de test",
+      "item": [
+        {
+          "name": "0.1 Login admin (compte seedé en base)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@senegalconnect.sn\",\n  \"mot_de_passe\": \"{{admin_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Rôle = admin', () => pm.expect(body.utilisateur.role).to.eql('admin'));",
+                  "pm.collectionVariables.set('token_admin', body.token);"
+                ]
+              }
+            }
+          ],
+          "description": "Le register public ne permet jamais de créer un admin — on utilise le compte admin des données de test. admin_password doit être défini dans TON ENVIRONNEMENT LOCAL (jamais dans la collection) — voir senegal-connect.postman_environment.example.json."
+        },
+        {
+          "name": "0.2 Register agent",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"Ndao\",\n  \"prenom\": \"Agent\",\n  \"email\": \"agent.{{$timestamp}}@example.sn\",\n  \"mot_de_passe\": \"MotDePasse123\",\n  \"role\": \"agent\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Rôle = agent', () => pm.expect(body.utilisateur.role).to.eql('agent'));",
+                  "pm.collectionVariables.set('token_agent', body.token);"
+                ]
+              }
+            }
+          ],
+          "description": "Validation des champs (email, mot de passe, etc.) déjà exhaustivement testée dans la collection Auth (cas 3, 4, 5) — ici on ne revalide que le strict nécessaire pour obtenir un token utilisable dans les tests suivants."
+        },
+        {
+          "name": "0.3 Register client (pour tester les refus 403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"Sow\",\n  \"prenom\": \"Client\",\n  \"email\": \"client.{{$timestamp}}@example.sn\",\n  \"mot_de_passe\": \"MotDePasse123\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('token_client', body.token);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Clients",
+      "item": [
+        {
+          "name": "1.1 GET /clients — liste paginée",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/clients?page=1&limite=3",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "clients"
+              ],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1"
+                },
+                {
+                  "key": "limite",
+                  "value": "3"
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Objet pagination complet', () => {",
+                  "    pm.expect(body.pagination).to.have.all.keys('page','limite','total','totalPages');",
+                  "});",
+                  "pm.test('Nombre de résultats <= limite demandée', () => {",
+                  "    pm.expect(body.donnees.length).to.be.at.most(3);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.2 GET /clients?statut=actif — filtre",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              }
+            ],
+            "url": "{{base_url}}/api/clients?statut=actif"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Tous les résultats ont statut=actif', () => {",
+                  "    body.donnees.forEach(c => pm.expect(c.statut).to.eql('actif'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.3 GET /clients?statut=invalide — 422 (valeur hors énumération)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              }
+            ],
+            "url": "{{base_url}}/api/clients?statut=inexistant"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 422', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.4 GET /clients — sans token (401, middleware bien branché)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/clients"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ],
+          "description": "Vérifie uniquement que verifierJWT() est bien appliqué à cette route. Les 3 messages distincts (manquant/invalide/expiré) sont testés en détail dans la collection Auth — pas la peine de les redupliquer ici."
+        },
+        {
+          "name": "1.5 POST /clients — création succès (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/clients",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"Kane\",\n  \"prenom\": \"Test\",\n  \"email\": \"kane.{{$timestamp}}@example.sn\",\n  \"mot_de_passe\": \"MotDePasse123\",\n  \"msisdn\": \"{{msisdn_genere}}\",\n  \"forfait_id\": 1\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Génère un MSISDN sénégalais VALIDE et unique à chaque exécution :",
+                  "// +221 + préfixe mobile réel (70/75/76/77/78) + 7 chiffres aléatoires.",
+                  "const prefixesValides = ['70', '75', '76', '77', '78'];",
+                  "const prefixe = prefixesValides[Math.floor(Math.random() * prefixesValides.length)];",
+                  "let suffixe = '';",
+                  "for (let i = 0; i < 7; i++) {",
+                  "    suffixe += Math.floor(Math.random() * 10);",
+                  "}",
+                  "pm.collectionVariables.set('msisdn_genere', '+221' + prefixe + suffixe);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Client contient id et msisdn', () => {",
+                  "    pm.expect(body.client).to.have.property('id');",
+                  "    pm.expect(body.client).to.have.property('msisdn');",
+                  "});",
+                  "pm.test('MSISDN renvoyé conforme au format sénégalais', () => {",
+                  "    pm.expect(body.client.msisdn).to.match(/^\\+221[0-9]{9}$/);",
+                  "});",
+                  "// On stocke l'id EN NOMBRE (pas en texte) car c'est le type renvoyé",
+                  "// par l'API (JSON number) — évite le bug de comparaison de types",
+                  "// rencontré en 1.9 précédemment (String('6') !== 6 avec .eql()).",
+                  "pm.collectionVariables.set('client_id', body.client.id);",
+                  "pm.collectionVariables.set('msisdn_test', body.client.msisdn);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.6 POST /clients — MSISDN dupliqué (409)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/clients",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"Autre\",\n  \"prenom\": \"Personne\",\n  \"email\": \"autre.{{$timestamp}}@example.sn\",\n  \"mot_de_passe\": \"MotDePasse123\",\n  \"msisdn\": \"{{msisdn_test}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 409', () => pm.response.to.have.status(409));"
+                ]
+              }
+            }
+          ],
+          "description": "Nécessite d'avoir exécuté 1.5 juste avant, pour que {{msisdn_test}} soit déjà pris."
+        },
+        {
+          "name": "1.7 POST /clients — MSISDN mal formaté (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/clients",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"Mauvais\",\n  \"prenom\": \"Format\",\n  \"email\": \"mauvais.{{$timestamp}}@example.sn\",\n  \"mot_de_passe\": \"MotDePasse123\",\n  \"msisdn\": \"0771234567\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 422', () => pm.response.to.have.status(422));",
+                  "const body = pm.response.json();",
+                  "pm.test('Champ fautif = msisdn', () => {",
+                  "    const champs = body.details.champs.map(c => c.champ);",
+                  "    pm.expect(champs).to.include('msisdn');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.8 POST /clients — refusé pour un rôle client (403)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_client}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/clients",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"X\",\n  \"prenom\": \"Y\",\n  \"email\": \"xy.{{$timestamp}}@example.sn\",\n  \"mot_de_passe\": \"MotDePasse123\",\n  \"msisdn\": \"+221709999999\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 403 Forbidden', () => pm.response.to.have.status(403));",
+                  "const body = pm.response.json();",
+                  "pm.test('Message évoque le rôle', () => pm.expect(body.erreur.toLowerCase()).to.include('rôle'));"
+                ]
+              }
+            }
+          ],
+          "description": "Vérifie le message exact de garderRole() — c'est la seule requête de la collection qui le fait en détail. Les refus 403 suivants (1.12, 2.3) se contentent de vérifier le code HTTP, pour éviter de répéter la même assertion de contenu."
+        },
+        {
+          "name": "1.9 GET /clients/:id — détail (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              }
+            ],
+            "url": "{{base_url}}/api/clients/{{client_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Id correspond', () => {",
+                  "    pm.expect(body.client.id).to.eql(pm.collectionVariables.get('client_id'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "description": "Correction : client_id est stocké comme NOMBRE (voir 1.5), donc on compare body.client.id (nombre) directement avec la variable, sans conversion String() qui causait un faux échec (String('6') !== 6)."
+        },
+        {
+          "name": "1.10 GET /clients/999999 — introuvable (404)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              }
+            ],
+            "url": "{{base_url}}/api/clients/999999"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.11 PUT /clients/:id — modification statut (200)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/clients/{{client_id}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"statut\": \"suspendu\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Statut bien mis à jour', () => pm.expect(body.client.statut).to.eql('suspendu'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.12 DELETE /clients/:id — refusé pour un agent (403, admin uniquement)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              }
+            ],
+            "url": "{{base_url}}/api/clients/{{client_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ],
+          "description": "Code HTTP uniquement — le contenu exact du message 403 est déjà vérifié en 1.8."
+        },
+        {
+          "name": "1.13 DELETE /clients/:id — succès en admin (204)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": "{{base_url}}/api/clients/{{client_id}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 204 No Content', () => pm.response.to.have.status(204));",
+                  "pm.test('Corps de réponse vide', () => pm.expect(pm.response.text()).to.have.lengthOf(0));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Forfaits",
+      "item": [
+        {
+          "name": "2.1 GET /forfaits — liste (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              }
+            ],
+            "url": "{{base_url}}/api/forfaits"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Au moins les 4 forfaits de démo', () => {",
+                  "    pm.expect(pm.response.json().donnees.length).to.be.at.least(4);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 POST /forfaits — création admin (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/forfaits",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"Forfait Test Postman\",\n  \"quota_data_go\": 3,\n  \"quota_voix_min\": 150,\n  \"prix_mensuel_fcfa\": 6000\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('forfait_id_supprimable', body.forfait.id);"
+                ]
+              }
+            }
+          ],
+          "description": "Ce forfait n'a AUCUN client rattaché — utilisé pour tester la suppression réussie en 2.5, sans casser les données de démo."
+        },
+        {
+          "name": "2.3 POST /forfaits — refusé pour un agent (403, admin uniquement)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/forfaits",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nom\": \"Ne doit pas passer\",\n  \"quota_data_go\": 1,\n  \"quota_voix_min\": 50,\n  \"prix_mensuel_fcfa\": 1000\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 403', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.4 DELETE /forfaits/2 — bloqué car clients rattachés (409)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": "{{base_url}}/api/forfaits/2"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 409 Conflict', () => pm.response.to.have.status(409));",
+                  "const body = pm.response.json();",
+                  "pm.test('Message distingue bien du cas 422 (référence inexistante)', () => {",
+                  "    pm.expect(body.erreur.toLowerCase()).to.include('supprimer');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "description": "Le forfait id=2 a des clients rattachés -> 23001 -> 409. Voir la description de la collection pour l'explication complète du choix 23001 vs 23503."
+        },
+        {
+          "name": "2.5 DELETE /forfaits/:id — succès (204, forfait sans client)",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": "{{base_url}}/api/forfaits/{{forfait_id_supprimable}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 204', () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ],
+          "description": "Nécessite d'avoir exécuté 2.2 juste avant."
+        }
+      ]
+    },
+    {
+      "name": "3. Factures",
+      "item": [
+        {
+          "name": "3.1 GET /factures?statut=impayee — filtre (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              }
+            ],
+            "url": "{{base_url}}/api/factures?statut=impayee"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Tous les résultats ont statut=impayee', () => {",
+                  "    body.donnees.forEach(f => pm.expect(f.statut).to.eql('impayee'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.2 GET /factures?periode=2026-01 — filtre période (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              }
+            ],
+            "url": "{{base_url}}/api/factures?periode=2026-01"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Tous les résultats ont periode=2026-01', () => {",
+                  "    body.donnees.forEach(f => pm.expect(f.periode).to.eql('2026-01'));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.3 GET /factures?periode=janvier — 422 (format invalide)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              }
+            ],
+            "url": "{{base_url}}/api/factures?periode=janvier"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 422', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.4 POST /factures — création succès (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/factures",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": 1,\n  \"periode\": \"2026-03\",\n  \"montant_fcfa\": 15000,\n  \"date_echeance\": \"2026-04-05\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('Référence générée au bon format FAC-YYYYMM-XXXX', () => {",
+                  "    pm.expect(body.facture.reference).to.match(/^FAC-\\d{6}-\\d{4}$/);",
+                  "});",
+                  "pm.collectionVariables.set('facture_id', body.facture.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.5 POST /factures — periode mal formatée (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/factures",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": 1,\n  \"periode\": \"2026-13\",\n  \"montant_fcfa\": 15000,\n  \"date_echeance\": \"2026-04-05\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 422 (mois 13 invalide)', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.6 POST /factures — client_id inexistant (422, référence FK invalide)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/factures",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": 999999,\n  \"periode\": \"2026-03\",\n  \"montant_fcfa\": 15000,\n  \"date_echeance\": \"2026-04-05\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 422 (référence inexistante, distinct du 409 de suppression)', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ],
+          "description": "Complète 2.4 : même classe d'erreur SQL, mais ici une CRÉATION avec FK inexistante -> 23503 -> 422 (voir description de la collection)."
+        },
+        {
+          "name": "3.7 PATCH /factures/:id/payer — marque payée (200)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              }
+            ],
+            "url": "{{base_url}}/api/factures/{{facture_id}}/payer"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Statut facture = payee', () => pm.expect(body.facture.statut).to.eql('payee'));"
+                ]
+              }
+            }
+          ],
+          "description": "Nécessite d'avoir exécuté 3.4 juste avant."
+        },
+        {
+          "name": "3.8 PATCH /factures/999999/payer — introuvable (404)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_agent}}"
+              }
+            ],
+            "url": "{{base_url}}/api/factures/999999/payer"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
