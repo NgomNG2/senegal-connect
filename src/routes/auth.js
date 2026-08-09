@@ -14,19 +14,8 @@ const { ErreurApplicative } = require('../middleware/erreurs');
 
 const router = express.Router();
 
-/**
- * Middleware générique : transforme les erreurs express-validator en
- * ErreurApplicative 422 avec le détail par champ (format attendu par le
- * cahier des charges : "liste d'erreurs par champ").
- */
-function validerRequete(req, res, next) {
-  const erreurs = validationResult(req);
-  if (!erreurs.isEmpty()) {
-    const details = erreurs.array().map((e) => ({ champ: e.path, message: e.msg }));
-    return next(new ErreurApplicative(422, 'Données invalides.', { champs: details }));
-  }
-  next();
-}
+// Middleware de validation réutilisable pour toutes les routes CRUD (clients, forfaits, factures...) : transforme les erreurs express-validator en réponse 422 avec le détail par champ.
+const { validerRequete } = require('../middleware/validation');
 
 router.post(
   '/register',
