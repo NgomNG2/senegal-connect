@@ -16,6 +16,10 @@ const morgan = require('morgan');
 const logger = require('./config/logger');
 const { gestionnaireErreurs, ErreurApplicative } = require('./middleware/erreurs');
 const routesAuth = require('./routes/auth');
+// Routes CRUD pour les clients, forfaits et factures.
+const routesClients = require('./routes/clients');
+const routesForfaits = require('./routes/forfaits');
+const routesFactures = require('./routes/factures');
 
 const app = express();
 
@@ -32,7 +36,13 @@ app.get('/api/health', (req, res) => {
   res.status(200).json({ statut: 'ok', version: process.env.APP_VERSION || '1.0.0' });
 });
 
+// Routes d'authentification (login, refresh token, logout).
 app.use('/api/auth', routesAuth);
+
+// Routes CRUD pour les clients, forfaits et factures.
+app.use('/api/clients', routesClients);
+app.use('/api/forfaits', routesForfaits);
+app.use('/api/factures', routesFactures);
 
 // Route inconnue -> 404 propre (avant le gestionnaire d'erreurs global)
 app.use((req, res, next) => {
