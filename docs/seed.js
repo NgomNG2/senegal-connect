@@ -21,7 +21,7 @@ const bcrypt = require('bcryptjs');
 const { transaction, pool } = require('../src/config/db');
 const logger = require('../src/config/logger');
 
-const MOT_DE_PASSE_DEMO = 'password123';
+const MOT_DE_PASSE_DEMO = process.env.DB_PASS;
 const ROUNDS_BCRYPT = 12; // même valeur que dans authController.js
 
 async function seed() {
