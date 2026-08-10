@@ -20,6 +20,10 @@ const routesAuth = require('./routes/auth');
 const routesClients = require('./routes/clients');
 const routesForfaits = require('./routes/forfaits');
 const routesFactures = require('./routes/factures');
+// Swagger UI pour la documentation interactive de l'API.
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
+
 
 const app = express();
 
@@ -43,6 +47,9 @@ app.use('/api/auth', routesAuth);
 app.use('/api/clients', routesClients);
 app.use('/api/forfaits', routesForfaits);
 app.use('/api/factures', routesFactures);
+
+// Documentation Swagger UI interactive.
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Route inconnue -> 404 propre (avant le gestionnaire d'erreurs global)
 app.use((req, res, next) => {
