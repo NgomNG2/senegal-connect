@@ -42,4 +42,43 @@ describe('Forfaits', () => {
     const res = await request(app).delete('/api/forfaits/2').set('Authorization', `Bearer ${tokenAdmin}`);
     expect(res.status).toBe(409);
   });
+
+  // Une création réussie doit retourner l'identifiant du nouveau forfait.
+  test('POST /api/forfaits renvoie 201 à la création réussie', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ id: 5, nom: 'Nouveau Forfait', prix_mensuel_fcfa: 8000 }] });
+    const res = await request(app).post('/api/forfaits').set('Authorization', `Bearer ${tokenAdmin}`).send({
+      nom: 'Nouveau Forfait', quota_data_go: 5, quota_voix_min: 200, prix_mensuel_fcfa: 8000,
+    });
+    expect(res.status).toBe(201);
+    expect(res.body.forfait.id).toBe(5);
+  });
+
+  // La récupération d'un forfait existant doit retourner ses détails.
+  test('GET /api/forfaits/:id renvoie le détail (200)', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ id: 1, nom: 'Essentiel' }] });
+    const res = await request(app).get('/api/forfaits/1').set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(res.status).toBe(200);
+  });
+
+  // La récupération d'un forfait inexistant doit retourner 404.
+  test('GET /api/forfaits/:id renvoie 404 si introuvable', async () => {
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const res = await request(app).get('/api/forfaits/999').set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(res.status).toBe(404);
+  });
+
+  // La modification d'un forfait existant doit retourner les nouvelles valeurs.
+  test('PUT /api/forfaits/:id modifie et renvoie 200', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ id: 1, actif: false }] });
+    const res = await request(app).put('/api/forfaits/1').set('Authorization', `Bearer ${tokenAdmin}`).send({ actif: false });
+    expect(res.status).toBe(200);
+    expect(res.body.forfait.actif).toBe(false);
+  });
+
+  // La suppression d'un forfait non utilisé doit retourner 204.
+  test('DELETE /api/forfaits/:id renvoie 204 en cas de succès (forfait non utilisé)', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ id: 5 }] });
+    const res = await request(app).delete('/api/forfaits/5').set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(res.status).toBe(204);
+  });
 });

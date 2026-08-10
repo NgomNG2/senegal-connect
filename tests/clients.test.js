@@ -50,4 +50,27 @@ describe('Clients', () => {
     });
     expect(res.status).toBe(422);
   });
+
+  // Modifie le statut d'un client et confirme la mise à jour dans la réponse.
+  test('PUT /api/clients/:id modifie le statut (200)', async () => {
+    db.query.mockResolvedValueOnce({ rows: [{ id: 1, statut: 'suspendu' }] });
+    const res = await request(app).put('/api/clients/1').set('Authorization', `Bearer ${tokenAgent}`).send({ statut: 'suspendu' });
+    expect(res.status).toBe(200);
+    expect(res.body.client.statut).toBe('suspendu');
+  });
+
+  // Seul un administrateur peut supprimer un client, pas un agent.
+  test('DELETE /api/clients/:id renvoie 403 pour un agent (admin uniquement)', async () => {
+    const res = await request(app).delete('/api/clients/1').set('Authorization', `Bearer ${tokenAgent}`);
+    expect(res.status).toBe(403);
+  });
+
+  // Un administrateur peut supprimer un client, et la réponse est 204 No Content.
+  test('DELETE /api/clients/:id renvoie 204 pour un admin', async () => {
+    const { genererToken } = require('./helpers/token');
+    const tokenAdmin = genererToken('admin');
+    db.query.mockResolvedValueOnce({ rows: [{ utilisateur_id: 4 }] }).mockResolvedValueOnce({ rows: [] });
+    const res = await request(app).delete('/api/clients/1').set('Authorization', `Bearer ${tokenAdmin}`);
+    expect(res.status).toBe(204);
+  });
 });
