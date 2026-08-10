@@ -12,15 +12,22 @@ async function liste(req, res, next) {
   try {
     const conditions = [];
     const params = [];
-
     if (req.query.actif !== undefined) {
       params.push(req.query.actif === 'true');
       conditions.push(`actif = $${params.length}`);
     }
-
     const clauseWhere = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-    const resultat = await db.query(`SELECT * FROM forfaits ${clauseWhere} ORDER BY prix_mensuel_fcfa`, params);
-
+    // LEFT JOIN + COUNT : le nombre de clients rattachés à chaque forfait,
+    // utile pour l'admin sans requête séparée par forfait.
+    const resultat = await db.query(
+      `SELECT f.*, COUNT(c.id)::int AS nb_clients
+       FROM forfaits f
+       LEFT JOIN clients c ON c.forfait_id = f.id
+       ${clauseWhere}
+       GROUP BY f.id
+       ORDER BY f.prix_mensuel_fcfa`,
+      params
+    );
     res.status(200).json({ donnees: resultat.rows });
   } catch (erreur) {
     next(erreur);
