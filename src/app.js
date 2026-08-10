@@ -20,6 +20,8 @@ const routesAuth = require('./routes/auth');
 const routesClients = require('./routes/clients');
 const routesForfaits = require('./routes/forfaits');
 const routesFactures = require('./routes/factures');
+// Routes statistiques (ex: nombre de clients, chiffre d'affaires, etc.)
+const routesStats = require('./routes/stats');
 // Swagger UI pour la documentation interactive de l'API.
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
@@ -37,7 +39,11 @@ app.use(express.json());
 app.use(morgan('combined', { stream: logger.stream }));
 
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ statut: 'ok', version: process.env.APP_VERSION || '1.0.0' });
+  res.status(200).json({
+    statut: 'ok',
+    uptime: process.uptime(),
+    version: process.env.APP_VERSION || '1.0.0',
+  });
 });
 
 // Routes d'authentification (login, refresh token, logout).
@@ -47,6 +53,9 @@ app.use('/api/auth', routesAuth);
 app.use('/api/clients', routesClients);
 app.use('/api/forfaits', routesForfaits);
 app.use('/api/factures', routesFactures);
+
+// Routes statistiques (ex: nombre de clients, chiffre d'affaires, etc.)
+app.use('/api/stats', routesStats);
 
 // Documentation Swagger UI interactive.
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
