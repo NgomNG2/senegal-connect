@@ -37,7 +37,7 @@ async function reset() {
     await client.query(`DROP TABLE IF EXISTS ${TABLES.join(', ')} CASCADE`);
     console.log('✅ Tables supprimées.');
 
-    console.log('🌱 Recréation du schéma et chargement des données de démo depuis docs/schema.sql...');
+    console.log('🌱 Recréation du schéma depuis docs/schema.sql...');
     const cheminSchema = path.join(__dirname, '..', 'docs', 'schema.sql');
     const contenuComplet = fs.readFileSync(cheminSchema, 'utf8');
 
@@ -46,7 +46,7 @@ async function reset() {
     // instructions séparées par des points-virgules en un seul appel.
     await client.query(contenuComplet);
 
-    console.log('✅ Schéma recréé, données de démo chargées.');
+    console.log('✅ Schéma recréé avec succès. La base est maintenant dans l’état initial.');
   } finally {
     client.release();
     await pool.end();
