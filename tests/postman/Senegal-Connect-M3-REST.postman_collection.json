@@ -1,0 +1,585 @@
+{
+  "info": {
+    "name": "Sénégal Connect — Module M3 (REST Tickets)",
+    "description": "Tests REST du module Socket.IO support : liste tickets filtrée par rôle, historique paginé par curseur, upload de fichier. La partie temps réel (ticket:ouvrir, message:envoyer, etc.) est testée séparément par tests/manual/test-socket-support.js. PRÉREQUIS : lancer `npm run db:reset && npm run seed` juste avant d'exécuter cette collection.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000"
+    },
+    {
+      "key": "token_admin",
+      "value": ""
+    },
+    {
+      "key": "token_awa_client",
+      "value": ""
+    },
+    {
+      "key": "token_fatou_agent",
+      "value": ""
+    },
+    {
+      "key": "admin_password",
+      "value": ""
+    },
+    {
+      "key": "ticket_id_cree",
+      "value": ""
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Setup — Comptes seedés",
+      "item": [
+        {
+          "name": "0.1 Login admin",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@senegalconnect.sn\",\n  \"mot_de_passe\": \"{{admin_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "pm.collectionVariables.set('token_admin', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.2 Login Awa Diouf (client, propriétaire du ticket 1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"awa.diouf@example.sn\",\n  \"mot_de_passe\": \"{{admin_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Rôle = client', () => pm.expect(pm.response.json().utilisateur.role).to.eql('client'));",
+                  "pm.collectionVariables.set('token_awa_client', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "0.3 Login Fatou Ndiaye (agent, assignée au ticket 1)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"agent1@senegalconnect.sn\",\n  \"mot_de_passe\": \"{{admin_password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Rôle = agent', () => pm.expect(pm.response.json().utilisateur.role).to.eql('agent'));",
+                  "pm.collectionVariables.set('token_fatou_agent', pm.response.json().token);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. GET /tickets — filtrage par rôle",
+      "item": [
+        {
+          "name": "1.1 En tant que cliente Awa — voit UNIQUEMENT son propre ticket",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_awa_client}}"
+              }
+            ],
+            "url": "{{base_url}}/api/tickets"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Exactement 1 ticket (le sien)', () => pm.expect(body.donnees).to.have.lengthOf(1));",
+                  "pm.test('Le ticket appartient bien à Awa Diouf', () => pm.expect(body.donnees[0].client_nom).to.eql('Diouf'));"
+                ]
+              }
+            }
+          ],
+          "description": "Sécurité clé : un client ne doit voir QUE ses propres tickets, même s'il en existe d'autres en base (2 autres tickets de démo existent, appartenant à d'autres clients)."
+        },
+        {
+          "name": "1.2 En tant qu'agent Fatou — voit ses tickets + les non assignés",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_fatou_agent}}"
+              }
+            ],
+            "url": "{{base_url}}/api/tickets"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Exactement 2 tickets (le sien assigné + celui non assigné)', () => pm.expect(body.donnees).to.have.lengthOf(2));",
+                  "pm.test('Aucun ticket assigné à un AUTRE agent', () => {",
+                  "    body.donnees.forEach(t => pm.expect(t.agent_id === 2 || t.agent_id === null).to.be.true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "description": "Le ticket 3 (assigné à un autre agent, id=3) ne doit PAS apparaître ici — seuls le ticket 1 (assigné à Fatou) et le ticket 2 (non assigné, agent_id NULL) doivent sortir."
+        },
+        {
+          "name": "1.3 En tant qu'admin — voit TOUS les tickets",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": "{{base_url}}/api/tickets"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Les 3 tickets de démo sont visibles', () => pm.expect(pm.response.json().donnees).to.have.lengthOf(3));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.4 GET /tickets sans token (401)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/tickets"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "1.5 GET /tickets?statut=ferme combiné au filtre agent (Fatou → 0 résultat)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_fatou_agent}}"
+              }
+            ],
+            "url": "{{base_url}}/api/tickets?statut=ferme"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "pm.test('0 résultat (le seul ticket fermé appartient à un autre agent)', () => {",
+                  "    pm.expect(pm.response.json().donnees).to.have.lengthOf(0);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "description": "Vérifie que le filtre ?statut= se combine bien AVEC le filtre de rôle (AND logique), pas l'un ou l'autre."
+        },
+        {
+          "name": "1.6 GET /tickets?statut=ferme en admin (1 résultat)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_admin}}"
+              }
+            ],
+            "url": "{{base_url}}/api/tickets?statut=ferme"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "pm.test('1 résultat (ticket 3, fermé)', () => pm.expect(pm.response.json().donnees).to.have.lengthOf(1));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. POST /tickets (création REST)",
+      "item": [
+        {
+          "name": "2.1 Création réussie (201)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_fatou_agent}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/tickets",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": 1,\n  \"sujet\": \"Ticket créé via REST par un agent\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('ticket_id_cree', pm.response.json().ticket.id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2.2 Client tente client_id d'un autre — ignoré (201, client_id forcé à celui du token)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_awa_client}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/tickets",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"client_id\": 2,\n  \"sujet\": \"Ticket créé au nom d'un autre client\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test(\"client_id forcé à 1 (celui d'Awa), PAS 2 comme envoyé dans le body\", () => {",
+                  "    pm.expect(body.ticket.client_id).to.eql(1);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "description": "Awa (cliente, client_id réel = 1) envoie client_id=2 dans le body pour tenter d'ouvrir un ticket au nom d'un autre client. Le contrôleur ignore désormais cette valeur et la remplace par le client_id dérivé du token — comportement identique à l'événement socket ticket:ouvrir. Voir ticketsController.creer()."
+        }
+      ]
+    },
+    {
+      "name": "3. GET /tickets/:id/messages — pagination par curseur",
+      "item": [
+        {
+          "name": "3.1 Historique d'un ticket sans messages (200, tableau vide)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_awa_client}}"
+              }
+            ],
+            "url": "{{base_url}}/api/tickets/1/messages"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Pagination expose limite/curseurSuivant/aPlus', () => {",
+                  "    pm.expect(body.pagination).to.have.all.keys('limite', 'curseurSuivant', 'aPlus');",
+                  "});",
+                  "pm.test('aPlus=false (pas de page suivante)', () => pm.expect(body.pagination.aPlus).to.eql(false));"
+                ]
+              }
+            }
+          ],
+          "description": "Les messages ne sont créés QUE via Socket.IO (message:envoyer), jamais via REST — voir tests/manual/test-socket-support.js pour un historique non vide de bout en bout."
+        },
+        {
+          "name": "3.2 Curseur ?avant= mal formaté (422)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_awa_client}}"
+              }
+            ],
+            "url": "{{base_url}}/api/tickets/1/messages?avant=hier"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 422', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.3 ?limite=200 (au-delà du max 100) renvoie 422",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_awa_client}}"
+              }
+            ],
+            "url": "{{base_url}}/api/tickets/1/messages?limite=200"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 422', () => pm.response.to.have.status(422));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "3.4 ?avant=<timestamp ISO valide> accepté (200)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_awa_client}}"
+              }
+            ],
+            "url": "{{base_url}}/api/tickets/1/messages?avant=2026-12-31T23:59:59Z"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. POST /tickets/:id/fichier — upload",
+      "item": [
+        {
+          "name": "4.1 Upload sans fichier joint (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_awa_client}}"
+              }
+            ],
+            "url": "{{base_url}}/api/tickets/1/fichier",
+            "body": {
+              "mode": "formdata",
+              "formdata": []
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 422', () => pm.response.to.have.status(422));",
+                  "pm.test('Message = Aucun fichier reçu', () => pm.expect(pm.response.json().erreur).to.include('Aucun fichier'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4.2 Upload d'une image valide (201) — sélectionner un fichier local",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_awa_client}}"
+              }
+            ],
+            "url": "{{base_url}}/api/tickets/1/fichier",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "fichier",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 201', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "pm.test('fichierUrl commence par /uploads/', () => pm.expect(body.fichierUrl).to.match(/^\\/uploads\\//));",
+                  "pm.test('Nom de fichier généré en UUID (pas le nom original)', () => {",
+                  "    const nomFichier = body.fichierUrl.split('/').pop();",
+                  "    pm.expect(nomFichier).to.match(/^[0-9a-f-]{36}\\.[a-z]+$/i);",
+                  "});",
+                  "pm.test('mimeType présent et cohérent', () => pm.expect(body.mimeType).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "description": "⚠️ AVANT DE LANCER : ouvre cette requête dans Postman, onglet Body → formdata → champ 'fichier' → clique 'Select Files' et choisis une image JPEG ou PNG locale (le JSON exporté ne peut pas embarquer un vrai fichier binaire)."
+        },
+        {
+          "name": "4.3 Type de fichier interdit — upload rejeté (422)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token_awa_client}}"
+              }
+            ],
+            "url": "{{base_url}}/api/tickets/1/fichier",
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "fichier",
+                  "type": "file",
+                  "src": []
+                }
+              ]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Statut 422', () => pm.response.to.have.status(422));",
+                  "const body = pm.response.json();",
+                  "pm.test('Message explicite mentionnant le type refusé', () => {",
+                  "    pm.expect(body.erreur).to.include('non autorisé');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "description": "Sélectionne un fichier .txt ou .json local dans l'onglet Body avant de lancer. multer.fileFilter() rejette maintenant via ErreurApplicative(422, ...) au lieu d'une Error générique — gestionnaireErreurs.js le reconnaît directement. Voir upload.js."
+        }
+      ]
+    }
+  ]
+}

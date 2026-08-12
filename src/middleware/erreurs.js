@@ -13,6 +13,10 @@
  * (qui, lui, varie selon la version/locale de PostgreSQL).
  */
 
+// Multer est utilisé pour gérer les fichiers uploadés (ex: pièces jointes).
+const multer = require('multer');
+
+
 class ErreurApplicative extends Error {
   constructor(codeHttp, message, details = null) {
     super(message);
@@ -47,6 +51,15 @@ function gestionnaireErreurs(err, req, res, next) {
   if (err.code === '23503' || err.code === '23514') {
     logger.warn(`422 — Contrainte BDD violée : ${err.detail || err.message}`);
     return res.status(422).json({ erreur: 'Donnée invalide (contrainte de base de données).' });
+  }
+
+
+  // Erreurs Multer NON déjà transformées en ErreurApplicative (ex: fichier
+  // trop volumineux, LIMIT_FILE_SIZE) — même logique que pour le fileFilter :
+  // un problème d'upload est une erreur CLIENT (422), pas une erreur serveur.
+  if (err instanceof multer.MulterError) {
+    logger.warn(`422 — Erreur upload (${err.code}) : ${err.message}`);
+    return res.status(422).json({ erreur: `Fichier invalide : ${err.message}` });
   }
 
   logger.error(`500 — Erreur non gérée : ${err.stack || err.message}`);
