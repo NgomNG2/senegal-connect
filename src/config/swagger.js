@@ -101,6 +101,44 @@ const options = {
             date_echeance: { type: 'string', format: 'date' },
           },
         },
+        Ticket: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer', example: 12 },
+            client_id: { type: 'integer', example: 3 },
+            agent_id: { type: 'integer', nullable: true, example: 7 },
+            sujet: { type: 'string', example: 'Problème de connexion internet' },
+            statut: { type: 'string', enum: ['ouvert', 'en_cours', 'ferme'] },
+            ouvert_le: { type: 'string', format: 'date-time' },
+            ferme_le: { type: 'string', format: 'date-time', nullable: true },
+            client_nom: { type: 'string', nullable: true, example: 'Diouf' },
+            client_prenom: { type: 'string', nullable: true, example: 'Awa' },
+          },
+        },
+        TicketMessage: {
+          type: 'object',
+          properties: {
+            id: { type: 'integer', example: 41 },
+            ticket_id: { type: 'integer', example: 12 },
+            expediteur_id: { type: 'integer', example: 3 },
+            type: { type: 'string', enum: ['texte', 'fichier', 'image', 'audio'] },
+            contenu: { type: 'string', nullable: true, example: 'Bonjour, j’ai un souci de connexion.' },
+            fichier_url: { type: 'string', nullable: true, example: '/uploads/scan-001.png' },
+            fichier_nom: { type: 'string', nullable: true, example: 'scan-001.png' },
+            fichier_taille: { type: 'integer', nullable: true, example: 245678 },
+            envoye_le: { type: 'string', format: 'date-time' },
+            reactions: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  emoji: { type: 'string', example: '👍' },
+                  utilisateur_id: { type: 'integer', example: 7 },
+                },
+              },
+            },
+          },
+        },
       },
     },
     // Sécurité par défaut sur TOUTES les routes documentées : chaque route
