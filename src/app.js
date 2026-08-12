@@ -25,6 +25,8 @@ const routesStats = require('./routes/stats');
 // Swagger UI pour la documentation interactive de l'API.
 const swaggerUi = require('swagger-ui-express');
 const swaggerSpec = require('./config/swagger');
+// Routes CRUD pour les tickets (ex: support client).
+const routesTickets = require('./routes/tickets');
 
 
 const app = express();
@@ -53,6 +55,11 @@ app.use('/api/auth', routesAuth);
 app.use('/api/clients', routesClients);
 app.use('/api/forfaits', routesForfaits);
 app.use('/api/factures', routesFactures);
+
+// Routes CRUD pour les tickets (ex: support client).
+app.use('/api/tickets', routesTickets);
+// Route pour servir les fichiers uploadés (ex: pièces jointes) depuis le dossier "uploads".
+app.use('/uploads', express.static(process.env.UPLOAD_DIR || 'uploads'));
 
 // Routes statistiques (ex: nombre de clients, chiffre d'affaires, etc.)
 app.use('/api/stats', routesStats);
