@@ -176,4 +176,36 @@ router.post('/:id/fichier', verifierJWT, param('id').isInt(), validerRequete, up
   }
 });
 
+/**
+ * @openapi
+ * /tickets/{id}/appels:
+ *   get:
+ *     summary: Récupérer les appels d'un ticket
+ *     tags: [Tickets]
+ *     security: [{ BearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       200:
+ *         description: Liste des appels associés au ticket
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 donnees: { type: array, items: { type: object } }
+ *       401: { description: Token manquant/invalide/expiré }
+ *       422: { description: Validation échouée, content: { application/json: { schema: { $ref: '#/components/schemas/Erreur' } } } }
+ */
+router.get(
+  '/:id/appels', 
+  verifierJWT, 
+  param('id').isInt(), 
+  validerRequete, 
+  ticketsController.appels
+);
+
 module.exports = router;

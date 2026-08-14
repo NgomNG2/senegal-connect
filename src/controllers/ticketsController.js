@@ -153,4 +153,26 @@ async function messages(req, res, next) {
   }
 }
 
-module.exports = { liste, creer, messages };
+/**
+ * "L'historique des appels d'un ticket est visible... via
+ *  GET /api/tickets/:id/appels."
+ * 
+ */
+async function appels(req, res, next) {
+  try {
+    const resultat = await db.query(
+      `SELECT a.*, ui.nom AS initiateur_nom, ud.nom AS destinataire_nom
+       FROM appels a
+       JOIN utilisateurs ui ON ui.id = a.initiateur_id
+       JOIN utilisateurs ud ON ud.id = a.destinataire_id
+       WHERE a.ticket_id = $1
+       ORDER BY a.debut_le DESC`,
+      [req.params.id]
+    );
+    res.status(200).json({ donnees: resultat.rows });
+  } catch (erreur) {
+    next(erreur);
+  }
+}
+
+module.exports = { liste, creer, messages, appels };

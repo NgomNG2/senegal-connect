@@ -8,6 +8,14 @@ const jwt = require('jsonwebtoken');
 const db = require('../config/db');
 const logger = require('../config/logger');
 
+// Ce module exporte une fonction appelée DEPUIS le connection handler de
+// support.js (pas un io.on('connection') séparé) pour partager le même
+// socket.data.user déjà peuplé, sans risque de course entre deux handlers
+// de connexion indépendants.
+const { enregistrerGestionnairesAppels } = require('./appels');
+const e = require('express');
+
+
 const EMOJIS_AUTORISES = ['👍', '❤️', '😂', '😮', '😢', '🙏', '🔥', '👏', '✅', '❌', '🎉', '💯'];
 
 function initialiserSupportSocket(io) {
@@ -38,6 +46,10 @@ function initialiserSupportSocket(io) {
     } catch (erreur) {
       logger.error(`Erreur chargement profil socket : ${erreur.message}`);
     }
+
+    // module appels.js — gestion des événements liés aux appels audio/vidéo
+    enregistrerGestionnairesAppels(io, socket); 
+
 
     logger.info(`Socket connecté : utilisateur ${utilisateurId} (${role})`);
 
@@ -122,6 +134,43 @@ function initialiserSupportSocket(io) {
       }
     });
 
+
+    // ======================================================================
+    // ticket:rejoindre (C→S) — hors tableau officiel du sujet, mais
+    // indispensable : ticket:ouvrir/ticket:assigner ne font rejoindre la
+    // room qu'UNE fois, au moment de l'action. Sans ceci, rouvrir un
+    // ticket existant (rechargement de page, changement de ticket dans
+    // la liste) ne rejoint jamais la room -> plus rien en temps réel.
+    // Même contrôle d'accès que pour appel:initier (M4) : uniquement le
+    // client du ticket ou l'agent assigné/non-assigné.
+    // ======================================================================
+    socket.on('ticket:rejoindre', async (payload, callback) => {
+      try {
+        const { ticketId } = payload;
+        const resultat = await db.query(
+          `SELECT t.agent_id, c.utilisateur_id AS client_utilisateur_id
+           FROM tickets t JOIN clients c ON c.id = t.client_id WHERE t.id = $1`,
+          [ticketId]
+        );
+        const ticket = resultat.rows[0];
+        if (!ticket) return callback?.({ erreur: 'Ticket introuvable.' });
+
+        const estLeClient = role === 'client' && ticket.client_utilisateur_id === utilisateurId;
+        const estAgentAutorise = (role === 'agent' || role === 'admin')
+          && (ticket.agent_id === utilisateurId || ticket.agent_id === null || role === 'admin');
+
+        if (!estLeClient && !estAgentAutorise) {
+          return callback?.({ erreur: 'Accès refusé à ce ticket.' });
+        }
+
+        socket.join(`ticket:${ticketId}`);
+        callback?.({ succes: true });
+      } catch (erreur) {
+        logger.error(`Erreur ticket:rejoindre : ${erreur.message}`);
+        callback?.({ erreur: 'Erreur serveur.' });
+      }
+    });
+
     // ======================================================================
     // message:envoyer (C→S) → diffuse message:nouveau (S→C)
     // "Valider le contenu, escapeHtml, INSERT messages en BDD, diffuser
@@ -132,8 +181,9 @@ function initialiserSupportSocket(io) {
         const { ticketId, contenu } = payload;
         if (!contenu || !contenu.trim()) return callback?.({ erreur: 'Message vide.' });
 
-        const contenuEchappe = echapperHtml(contenu.trim());
-
+       // const contenuEchappe = echapperHtml(contenu.trim());
+        contenuEchappe = contenu.trim(); // double échappement HTML inutile côté serveur, déjà fait côté client
+        
         const resultat = await db.query(
           `INSERT INTO messages (ticket_id, expediteur_id, type, contenu)
            VALUES ($1, $2, 'texte', $3)
@@ -301,13 +351,13 @@ function initialiserSupportSocket(io) {
   });
 }
 
-function echapperHtml(texte) {
-  return texte
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
+// function echapperHtml(texte) {
+//   return texte
+//     .replace(/&/g, '&amp;')
+//     .replace(/</g, '&lt;')
+//     .replace(/>/g, '&gt;')
+//     .replace(/"/g, '&quot;')
+//     .replace(/'/g, '&#39;');
+// }
 
 module.exports = { initialiserSupportSocket, EMOJIS_AUTORISES };

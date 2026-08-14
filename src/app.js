@@ -11,6 +11,8 @@
  */
 
 const express = require('express');
+// Path est utilisé pour construire des chemins de fichiers de manière portable.
+const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan');
 const logger = require('./config/logger');
@@ -36,6 +38,9 @@ const originesAutorisees = (process.env.CORS_ORIGINS || '').split(',').filter(Bo
 app.use(cors({ origin: originesAutorisees.length ? originesAutorisees : true }));
 
 app.use(express.json());
+
+// Pour servir les fichiers statiques (HTML, CSS, JS) depuis le dossier "public".
+app.use(express.static(path.join(__dirname, '../public')));
 
 // Morgan relaie chaque requête HTTP vers Winston (niveau "http").
 app.use(morgan('combined', { stream: logger.stream }));
