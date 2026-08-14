@@ -1,0 +1,55 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+    volumes:
+      # Volume nommé : les données survivent à un `docker compose down`
+      # (contrairement à `down -v` qui le supprimerait explicitement).
+      - pgdata:/var/lib/postgresql/data
+      # Rejoué automatiquement par l'image postgres au tout premier
+      # démarrage (dossier vide) — crée les 9 tables. Les données de
+      # démo, elles, viennent de `npm run seed` (voir README), pas d'ici.
+      - ./docs/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    ports:
+      # Exposé pour pouvoir se connecter avec psql/pgAdmin depuis l'hôte
+      # en debug — à retirer si ce n'est pas nécessaire en démo.
+      - "5432:5432"
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # À l'intérieur du réseau Docker, la base n'est PAS sur "localhost"
+      # mais sur le nom du service ("postgres") — Docker Compose résout
+      # ce nom vers l'IP interne du conteneur postgres. Cette valeur
+      # écrase volontairement DB_HOST venant de .env (qui contient
+      # "localhost", correct pour le dev SANS Docker).
+      DB_HOST: postgres
+    ports:
+      - "3000:3000" # API + Socket.IO
+      - "9000:9000" # Serveur PeerJS (signalisation WebRTC)
+    volumes:
+      # Bind mount (pas un volume nommé) : les fichiers uploadés restent
+      # visibles et inspectables directement depuis l'hôte, pratique en
+      # développement/démo.
+      - ./uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
