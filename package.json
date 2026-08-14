@@ -47,7 +47,7 @@
     "dev": "nodemon src/server.js",
     "test": "cross-env NODE_ENV=test jest",
     "test:cov": "cross-env NODE_ENV=test jest --coverage",
-    "seed": "node docs/seed.js",
+    "seed": "node scripts/seed.js",
     "db:reset": "node scripts/reset-db.js",
     "db:reset:seed": "node scripts/reset-db.js && node scripts/seed.js"
   },
