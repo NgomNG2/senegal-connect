@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sénégal Connect — Support Client</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><rect width=%2224%22 height=%2224%22 rx=%226%22 fill=%22%23123c39%22/><text x=%2212%22 y=%2216%22 font-size=%2210%22 fill=%22%23d98e04%22 text-anchor=%22middle%22 font-family=%22sans-serif%22 font-weight=%22bold%22>SC</text></svg>" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/app.css" />
+</head>
+<body>
+
+  <!-- ==================== AUTHENTIFICATION ==================== -->
+  <section id="ecran-auth" class="ecran">
+    <div class="panneau-marque">
+      <div class="barres-signal-hero" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+      <h1 class="marque-titre">Sénégal<br />Connect</h1>
+      <p class="marque-slogan">Le support client de votre opérateur, en temps réel.</p>
+      <ul class="marque-points">
+        <li>Chat instantané avec un agent</li>
+        <li>Appels audio et vidéo intégrés</li>
+        <li>Suivi de vos tickets et factures</li>
+      </ul>
+    </div>
+
+    <div class="panneau-formulaire">
+      <div class="bascule-onglets" role="tablist">
+        <button type="button" class="onglet actif" data-onglet="login" role="tab" aria-selected="true">Se connecter</button>
+        <button type="button" class="onglet" data-onglet="register" role="tab" aria-selected="false">Créer un compte</button>
+      </div>
+
+      <form id="formulaire-login" class="formulaire-auth" novalidate>
+        <label>Email<input type="email" id="login-email" placeholder="vous@exemple.sn" required autocomplete="username" /></label>
+        <label>Mot de passe<input type="password" id="login-mot-de-passe" placeholder="********" required autocomplete="current-password" /></label>
+        <button type="submit" class="bouton-principal">Se connecter</button>
+        <p id="login-erreur" class="message-erreur" role="alert"></p>
+      </form>
+      
+    
+      <form id="formulaire-register" class="formulaire-auth cache" novalidate>
+        <div class="ligne-champs">
+          <label>Prénom<input type="text" id="register-prenom" required /></label>
+          <label>Nom<input type="text" id="register-nom" required /></label>
+        </div>
+        <label>Email<input type="email" id="register-email" placeholder="vous@exemple.sn" required autocomplete="username" /></label>
+        <label>Mot de passe<input type="password" id="register-mot-de-passe" placeholder="8 caractères minimum" minlength="8" required autocomplete="new-password" /></label>
+        <fieldset class="choix-role">
+          <legend>Vous êtes</legend>
+          <label class="option-role"><input type="radio" name="role" value="client" checked /><span>Abonné</span></label>
+          <label class="option-role"><input type="radio" name="role" value="agent" /><span>Agent support</span></label>
+        </fieldset>
+        <button type="submit" class="bouton-principal">Créer mon compte</button>
+        <p id="register-erreur" class="message-erreur" role="alert"></p>
+      </form>
+    </div>
+  </section>
+
+  <!-- ==================== APPLICATION PRINCIPALE ==================== -->
+  <section id="ecran-app" class="ecran cache">
+    <header id="entete">
+      <div class="entete-marque">
+        <span class="logo-pastille">SC</span>
+        <span class="logo-texte">Sénégal Connect</span>
+      </div>
+
+      <div class="statut-connexion" id="statut-connexion">
+        <span class="barres-signal-mini" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+        <span id="texte-statut-connexion">Connexion…</span>
+      </div>
+
+      <div id="info-utilisateur">
+        <span class="avatar-initiales" id="avatar-utilisateur"></span>
+        <div class="details-utilisateur">
+          <span id="nom-utilisateur-connecte"></span>
+          <span id="badge-role" class="badge-role"></span>
+        </div>
+        <button id="bouton-deconnexion" class="bouton-fantome">Déconnexion</button>
+      </div>
+    </header>
+
+    <div id="corps-app">
+      <!-- ---------- Tickets ---------- -->
+      <aside id="colonne-tickets">
+        <div id="entete-tickets">
+          <h2>Tickets</h2>
+          <button id="bouton-nouveau-ticket" class="bouton-rond" title="Ouvrir un ticket">
+            <svg viewBox="0 0 24 24" width="16" height="16"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <ul id="liste-tickets"></ul>
+        <p id="tickets-vide" class="etat-vide-liste cache">Aucun ticket pour l'instant.</p>
+      </aside>
+
+      <!-- ---------- Chat ---------- -->
+      <main id="colonne-chat">
+        <div id="chat-vide" class="etat-vide">
+          <div class="barres-signal-hero petite" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+          <p>Sélectionne un ticket pour démarrer la conversation.</p>
+        </div>
+
+        <div id="chat-actif" class="cache">
+          <header id="entete-chat">
+            <div class="titre-salon">
+              <span class="etiquette-salon" id="chat-numero-salon"></span>
+              <h3 id="chat-sujet"></h3>
+              <span id="chat-statut" class="badge-statut"></span>
+            </div>
+            <div id="actions-ticket">
+              <button id="bouton-prendre-en-charge" class="bouton-secondaire cache">Prendre en charge</button>
+              <div id="boutons-appel" class="cache">
+                <button id="bouton-appel-audio" class="bouton-icone" title="Appel audio">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M4 5c0 8.284 6.716 15 15 15l2-4-5-2-2 2c-2.5-1-4.5-3-5.5-5.5l2-2-2-5-4 1.5Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                </button>
+                <button id="bouton-appel-video" class="bouton-icone" title="Appel vidéo">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none"><rect x="3" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M15 10l6-3v10l-6-3" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+                </button>
+              </div>
+              <button id="bouton-historique-appels" class="bouton-icone" title="Historique des appels">
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M12 7v5l3.5 2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+              </button>
+              <button id="bouton-fermer-ticket" class="bouton-fantome cache">Fermer</button>
+            </div>
+          </header>
+
+          <div id="fil-messages"></div>
+          <div id="indicateur-frappe" class="cache"></div>
+
+          <footer id="pied-chat">
+            <button id="bouton-emoji" class="bouton-icone" title="Émojis">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M8.5 14.5c1 1.2 2.2 1.8 3.5 1.8s2.5-.6 3.5-1.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="9" cy="10" r="1" fill="currentColor"/><circle cx="15" cy="10" r="1" fill="currentColor"/></svg>
+            </button>
+            <div id="selecteur-emoji" class="cache"></div>
+            <button id="bouton-joindre-fichier" class="bouton-icone" title="Joindre un fichier (image, PDF, audio)">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none"><path d="M8 12.5l6.5-6.5a3 3 0 1 1 4.24 4.24L10.5 18.5a5 5 0 1 1-7.07-7.07L12 3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <input type="file" id="input-fichier" class="cache" accept="image/jpeg,image/png,application/pdf,audio/mpeg,audio/wav,audio/ogg" />
+            <input type="text" id="champ-message" placeholder="Écris ton message…" autocomplete="off" />
+            <button id="bouton-envoyer" class="bouton-principal petit">Envoyer</button>
+          </footer>
+        </div>
+      </main>
+
+      <!-- ---------- Clients ---------- -->
+      <aside id="colonne-clients">
+        <h2>Clients</h2>
+        <input type="search" id="recherche-clients" placeholder="Rechercher (nom, MSISDN)…" />
+        <ul id="liste-clients"></ul>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ==================== MODALES ==================== -->
+  <div id="modale-nouveau-ticket" class="modale cache">
+    <div class="contenu-modale">
+      <h3>Ouvrir un ticket</h3>
+      <label>Sujet<input type="text" id="nouveau-ticket-sujet" placeholder="Ex : Facture incorrecte" /></label>
+      <div class="actions-modale">
+        <button id="bouton-annuler-ticket" class="bouton-fantome">Annuler</button>
+        <button id="bouton-confirmer-ticket" class="bouton-principal petit">Ouvrir</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modale-historique-appels" class="modale cache">
+    <div class="contenu-modale">
+      <h3>Historique des appels</h3>
+      <ul id="liste-historique-appels"></ul>
+      <p id="historique-appels-vide" class="etat-vide-liste cache">Aucun appel pour ce ticket.</p>
+      <div class="actions-modale">
+        <button id="bouton-fermer-historique" class="bouton-fantome">Fermer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ==================== SONNERIE ==================== -->
+  <div id="bandeau-appel-entrant" class="cache">
+    <p><strong id="appelant-nom"></strong> vous appelle en <span id="appelant-type"></span></p>
+    <div class="actions-sonnerie">
+      <button id="bouton-accepter-appel" class="bouton-appel accepter">Accepter</button>
+      <button id="bouton-refuser-appel" class="bouton-appel refuser">Refuser</button>
+    </div>
+  </div>
+
+  <!-- ==================== OVERLAY APPEL ==================== -->
+  <div id="overlay-appel" class="cache">
+    <div id="zone-video-distante">
+      <video id="video-distante" autoplay playsinline></video>
+      <div id="indicateurs-distants">
+        <span id="icone-micro-distant" class="icone-etat cache">Micro coupé</span>
+        <span id="icone-camera-distant" class="icone-etat cache">Caméra coupée</span>
+        <span id="indicateur-partage-distant" class="icone-etat cache">Partage d'écran</span>
+      </div>
+      <div id="chronometre">00:00</div>
+    </div>
+
+    <div id="zone-video-locale">
+      <video id="video-locale" autoplay playsinline muted></video>
+      <div id="indicateur-partage" class="cache">Partage d'écran actif</div>
+    </div>
+
+    <div id="controles-appel">
+      <button id="bouton-micro" class="bouton-controle-appel" title="Couper le micro">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none"><rect x="9" y="3" width="6" height="11" rx="3" stroke="currentColor" stroke-width="1.8"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <button id="bouton-camera" class="bouton-controle-appel" title="Couper la caméra">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none"><rect x="3" y="6" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M15 10l6-3v10l-6-3" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      </button>
+      <button id="bouton-partage-ecran" class="bouton-controle-appel" title="Partager l'écran (Stop via le bouton du navigateur)">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none"><rect x="3" y="4" width="18" height="12" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M8 20h8M12 16v4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+      </button>
+      <button id="bouton-raccrocher" class="bouton-controle-appel raccrocher" title="Raccrocher">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none"><path d="M4 15c5-4 11-4 16 0l-1.5 3-3.5-1v-2c-1.5-.5-4-.5-5.5 0v2l-3.5 1L4 15Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="zone-notifications"></div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+  <!-- webrtc.js AVANT app.js : app.js référence directement certaines de
+       ses fonctions (pas seulement dans des closures) lors du câblage des
+       boutons — l'ordre inverse provoquait un ReferenceError silencieux
+       qui cassait tout le reste du script. -->
+  <script src="js/webrtc.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

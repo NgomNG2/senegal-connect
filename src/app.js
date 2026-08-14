@@ -11,11 +11,25 @@
  */
 
 const express = require('express');
+// Path est utilisé pour construire des chemins de fichiers de manière portable.
+const path = require('path');
 const cors = require('cors');
 const morgan = require('morgan');
 const logger = require('./config/logger');
 const { gestionnaireErreurs, ErreurApplicative } = require('./middleware/erreurs');
 const routesAuth = require('./routes/auth');
+// Routes CRUD pour les clients, forfaits et factures.
+const routesClients = require('./routes/clients');
+const routesForfaits = require('./routes/forfaits');
+const routesFactures = require('./routes/factures');
+// Routes statistiques (ex: nombre de clients, chiffre d'affaires, etc.)
+const routesStats = require('./routes/stats');
+// Swagger UI pour la documentation interactive de l'API.
+const swaggerUi = require('swagger-ui-express');
+const swaggerSpec = require('./config/swagger');
+// Routes CRUD pour les tickets (ex: support client).
+const routesTickets = require('./routes/tickets');
+
 
 const app = express();
 
@@ -25,14 +39,38 @@ app.use(cors({ origin: originesAutorisees.length ? originesAutorisees : true }))
 
 app.use(express.json());
 
+// Pour servir les fichiers statiques (HTML, CSS, JS) depuis le dossier "public".
+app.use(express.static(path.join(__dirname, '../public')));
+
 // Morgan relaie chaque requête HTTP vers Winston (niveau "http").
 app.use(morgan('combined', { stream: logger.stream }));
 
 app.get('/api/health', (req, res) => {
-  res.status(200).json({ statut: 'ok', version: process.env.APP_VERSION || '1.0.0' });
+  res.status(200).json({
+    statut: 'ok',
+    uptime: process.uptime(),
+    version: process.env.APP_VERSION || '1.0.0',
+  });
 });
 
+// Routes d'authentification (login, refresh token, logout).
 app.use('/api/auth', routesAuth);
+
+// Routes CRUD pour les clients, forfaits et factures.
+app.use('/api/clients', routesClients);
+app.use('/api/forfaits', routesForfaits);
+app.use('/api/factures', routesFactures);
+
+// Routes CRUD pour les tickets (ex: support client).
+app.use('/api/tickets', routesTickets);
+// Route pour servir les fichiers uploadés (ex: pièces jointes) depuis le dossier "uploads".
+app.use('/uploads', express.static(process.env.UPLOAD_DIR || 'uploads'));
+
+// Routes statistiques (ex: nombre de clients, chiffre d'affaires, etc.)
+app.use('/api/stats', routesStats);
+
+// Documentation Swagger UI interactive.
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 // Route inconnue -> 404 propre (avant le gestionnaire d'erreurs global)
 app.use((req, res, next) => {

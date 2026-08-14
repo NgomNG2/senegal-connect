@@ -145,47 +145,8 @@ CREATE TABLE reactions (
 -- la même réaction au même message.
 
 -- =============================================================================
--- Données initiales pour tests et démonstration
--- Même si la section "Données initiales" n'est pas explicitement demandée dans le tableau récapitulatif, il est pratique d'avoir quelques enregistrements pour tester l'application.
--- Mot de passe pour tous les utilisateurs : "password123" (haché avec bcrypt (round 12)) valable pour tous les utilisateurs.
+-- Données de test et démonstration
+-- Voir scripts/seed.js — génère les mots de passe hachés dynamiquement
+-- avec bcryptjs plutôt que de stocker des hashs en dur dans ce fichier SQL.
+-- Usage : node scripts/seed.js
 -- =============================================================================
-
--- Utilisateurs : 1 administrateur, 2 agents et 5 clients.
-INSERT INTO utilisateurs (nom, prenom, email, mot_de_passe, role) VALUES
-('Sarr',   'Moussa',  'admin@senegalconnect.sn',  '$$2b$12$0Xd8NscrFHfw6Nk/nZPm9OsLZAi0WU75oEjAxSNRsapbSHCRGU6cC', 'admin'),
-('Ndiaye', 'Fatou',   'agent1@senegalconnect.sn', '$$2b$12$0Xd8NscrFHfw6Nk/nZPm9OsLZAi0WU75oEjAxSNRsapbSHCRGU6cC', 'agent'),
-('Fall',   'Ibrahima','agent2@senegalconnect.sn', '$$2b$12$0Xd8NscrFHfw6Nk/nZPm9OsLZAi0WU75oEjAxSNRsapbSHCRGU6cC', 'agent'),
-('Diouf',  'Awa',     'awa.diouf@example.sn',     '$$2b$12$0Xd8NscrFHfw6Nk/nZPm9OsLZAi0WU75oEjAxSNRsapbSHCRGU6cC', 'client'),
-('Gueye',  'Cheikh',  'cheikh.gueye@example.sn',  '$$2b$12$0Xd8NscrFHfw6Nk/nZPm9OsLZAi0WU75oEjAxSNRsapbSHCRGU6cC', 'client'),
-('Mbaye',  'Aminata', 'aminata.mbaye@example.sn', '$$2b$12$0Xd8NscrFHfw6Nk/nZPm9OsLZAi0WU75oEjAxSNRsapbSHCRGU6cC', 'client'),
-('Sy',     'Ousmane', 'ousmane.sy@example.sn',    '$$2b$12$0Xd8NscrFHfw6Nk/nZPm9OsLZAi0WU75oEjAxSNRsapbSHCRGU6cC', 'client'),
-('Ba',     'Khady',   'khady.ba@example.sn',      '$$2b$12$0Xd8NscrFHfw6Nk/nZPm9OsLZAi0WU75oEjAxSNRsapbSHCRGU6cC', 'client');
-
--- Quatre forfaits couvrant différents niveaux de consommation.
-INSERT INTO forfaits (nom, quota_data_go, quota_voix_min, prix_mensuel_fcfa, actif) VALUES
-('Forfait Sénégal Essentiel', 2,  100,  5000,  TRUE),
-('Forfait Sénégal Confort',   10, 500,  15000, TRUE),
-('Forfait Sénégal Illimité',  50, 2000, 30000, TRUE),
-('Forfait Sénégal Diaspora',  20, 1000, 25000, TRUE);
-
--- Cinq clients de démonstration avec des forfaits et statuts variés.
-INSERT INTO clients (utilisateur_id, msisdn, forfait_id, statut) VALUES
-(4, '+221771234567', 2, 'actif'),
-(5, '+221781234567', 3, 'actif'),
-(6, '+221701234567', 1, 'suspendu'),
-(7, '+221761234567', 4, 'actif'),
-(8, '+221751234567', 2, 'resilie');
-
--- Cinq factures de démonstration couvrant plusieurs périodes et statuts.
-INSERT INTO factures (client_id, reference, periode, montant_fcfa, statut, date_echeance) VALUES
-(1, 'FAC-202601-0001', '2026-01', 15000, 'payee',    '2026-02-05'),
-(1, 'FAC-202602-0001', '2026-02', 15000, 'impayee',  '2026-03-05'),
-(2, 'FAC-202601-0002', '2026-01', 30000, 'payee',    '2026-02-05'),
-(3, 'FAC-202601-0003', '2026-01', 5000,  'en_retard','2026-02-05'),
-(4, 'FAC-202602-0002', '2026-02', 25000, 'impayee',  '2026-03-05');
-
--- Trois tickets de démonstration : en cours, ouvert et fermé.
-INSERT INTO tickets (client_id, agent_id, sujet, statut) VALUES
-(1, 2, 'Facture FAC-202602-0001 incorrecte', 'en_cours'),
-(3, NULL, 'Demande de réactivation de ligne', 'ouvert'),
-(2, 3, 'Question sur le renouvellement de forfait', 'ferme');

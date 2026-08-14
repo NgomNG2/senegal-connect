@@ -41,11 +41,15 @@
     "supertest": "^7.2.2"
   },
 
+  "_testScriptsComment": "Les tests utilisent les workers Jest en parallèle ; --runInBand a été retiré pour rester sous 10 secondes.",
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
-    "test": "cross-env NODE_ENV=test jest --runInBand",
-    "test:cov": "cross-env NODE_ENV=test jest --coverage --runInBand"
+    "test": "cross-env NODE_ENV=test jest",
+    "test:cov": "cross-env NODE_ENV=test jest --coverage",
+    "seed": "node scripts/seed.js",
+    "db:reset": "node scripts/reset-db.js",
+    "db:reset:seed": "node scripts/reset-db.js && node scripts/seed.js"
   },
   "engines": { "node": ">=20.0.0" },
   "jest": {
@@ -55,4 +59,3 @@
   }
 
 }
-

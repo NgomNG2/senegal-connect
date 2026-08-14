@@ -6,3 +6,5 @@ uploads/*
 coverage/
 *.log
 .DS_Store
+tests/postman/*.postman_environment.json
+!tests/postman/*.postman_environment.example.json
