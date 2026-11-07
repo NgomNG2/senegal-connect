@@ -120,7 +120,28 @@ npm test              # suite complète
 npm run test:cov       # avec rapport de couverture
 ```
 
-33 tests, base de données entièrement mockée (`jest.mock('../src/config/db')` — aucun PostgreSQL réel requis), couverture ≥ 78% des lignes, exécution < 10 secondes.
+33 tests, base de données entièrement mockée (`jest.mock('../src/config/db')` — aucun PostgreSQL réel requis), exécution < 10 secondes.
+
+### Pipeline automatique CI/CD
+
+Le workflow [`ci-cd.yml`](.github/workflows/ci-cd.yml) s'exécute automatiquement sur chaque
+`push` et chaque **Pull Request** vers `main` :
+
+1. **Test** : GitHub Actions utilise Node.js 20, installe exactement les dépendances
+   de `package-lock.json`, lance Jest en mode CI avec la couverture et archive le rapport.
+   La suite mocke PostgreSQL ; aucun service de base de données n'est donc nécessaire.
+2. **Build** : seulement si les tests réussissent, Docker construit l'image avec
+   [`Dockerfile`](Dockerfile). Une Pull Request vérifie le build sans publier d'image.
+3. **Publication** : sur un `push` vers `main`, l'image est publiée dans GitHub Container
+   Registry (GHCR), avec des tags de branche, de version et de commit.
+
+Pour reproduire localement la vérification CI :
+
+```bash
+npm ci
+npm run test:cov -- --ci
+docker build -t senegal-connect:ci .
+```
 
 Tests d'intégration Socket.IO (nécessitent un serveur réellement lancé) :
 ```bash
