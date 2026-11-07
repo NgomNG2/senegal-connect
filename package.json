@@ -27,18 +27,17 @@
     "peer": "^1.0.2",
     "pg": "^8.22.0",
     "socket.io": "^4.8.3",
-    "swagger-jsdoc": "^6.3.0",
+    "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "winston": "^3.19.0"
   },
   "devDependencies": {
     "cross-env": "^10.1.0",
-    "jest": "^30.4.2",
-    "nodemon": "^3.1.14",
+    "jest": "^30.5.2",
+    "nodemon": "^3.1.11",
     "socket.io-client": "^4.8.3",
     "supertest": "^7.2.2"
   },
-
   "_testScriptsComment": "Les tests utilisent les workers Jest en parallèle ; --runInBand a été retiré pour rester sous 10 secondes.",
   "scripts": {
     "start": "node src/server.js",
@@ -49,11 +48,16 @@
     "db:reset": "node scripts/reset-db.js",
     "db:reset:seed": "node scripts/reset-db.js && node scripts/seed.js"
   },
-  "engines": { "node": ">=20.0.0" },
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "jest": {
     "testEnvironment": "node",
-    "coveragePathIgnorePatterns": ["/node_modules/", "src/config/swagger.js", "src/server.js"],
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "src/config/swagger.js",
+      "src/server.js"
+    ],
     "testTimeout": 10000
   }
-
 }
