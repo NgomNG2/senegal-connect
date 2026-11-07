@@ -120,7 +120,7 @@ npm test              # suite complète
 npm run test:cov       # avec rapport de couverture
 ```
 
-33 tests, base de données entièrement mockée (`jest.mock('../src/config/db')` — aucun PostgreSQL réel requis), exécution < 10 secondes.
+41 tests, base de données entièrement mockée (`jest.mock('../src/config/db')` — aucun PostgreSQL réel requis), couverture d'environ 78 % des lignes, exécution < 10 secondes.
 
 ### Pipeline automatique CI/CD
 
