@@ -15,16 +15,16 @@ jobs:
   # JOB 1 : Tests & Qualité de Code
   # ==========================================
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout du code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Configuration de Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
 
       - name: Installation des dépendances
@@ -37,7 +37,7 @@ jobs:
           JWT_ISSUER: senegal-connect
 
       - name: Archivage du rapport de couverture
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-report
           path: coverage/
@@ -48,14 +48,14 @@ jobs:
   # ==========================================
   build-and-push:
     needs: test # Ne s'exécute QUE si les tests passent avec succès
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       packages: write # Nécessaire pour pousser sur GitHub Packages (GHCR)
 
     steps:
       - name: Checkout du code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       # Configuration de Docker Buildx (indispensable pour les builds optimisés)
       - name: Set up Docker Buildx

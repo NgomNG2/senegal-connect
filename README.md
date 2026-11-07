@@ -127,7 +127,7 @@ npm run test:cov       # avec rapport de couverture
 Le workflow [`ci-cd.yml`](.github/workflows/ci-cd.yml) s'exécute automatiquement sur chaque
 `push` et chaque **Pull Request** vers `main` :
 
-1. **Test** : GitHub Actions utilise Node.js 20, installe exactement les dépendances
+1. **Test** : GitHub Actions utilise Node.js 24, installe exactement les dépendances
    de `package-lock.json`, lance Jest en mode CI avec la couverture et archive le rapport.
    La suite mocke PostgreSQL ; aucun service de base de données n'est donc nécessaire.
 2. **Build** : seulement si les tests réussissent, Docker construit l'image avec
