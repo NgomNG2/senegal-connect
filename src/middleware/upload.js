@@ -12,7 +12,7 @@
 
 const multer = require('multer');
 const path = require('path');
-const { v4: uuidv4 } = require('uuid');
+const { randomUUID } = require('crypto');
 const { ErreurApplicative } = require('./erreurs');
 
 const TYPES_AUTORISES = [
@@ -28,7 +28,7 @@ const stockage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, process.env.UPLOAD_DIR || 'uploads'),
   filename: (req, file, cb) => {
     const extension = path.extname(file.originalname);
-    cb(null, `${uuidv4()}${extension}`);
+    cb(null, `${randomUUID()}${extension}`);
   },
 });
 
